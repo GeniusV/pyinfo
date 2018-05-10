@@ -10,10 +10,11 @@ from concurrent.futures import Future
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 from datetime import datetime
+import time
 from email.header import Header
 from email.mime.text import MIMEText
+from logging import Logger
 from smtplib import SMTP
-
 
 import requests
 import yaml
@@ -21,15 +22,15 @@ from lxml import html
 from scripts import log
 
 content = ''
-logger = None
+logger = None  # type: Logger
 config = {}
 base_header = {
     "user-agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_3) AppleWebKit/604.5.6 (KHTML, like Gecko) Version/11.0.3 Safari/604.5.6'
 }
 data = {}
 
-def send_email(SMTP_host, from_addr, password, to_addrs, subject, content):
 
+def send_email(SMTP_host, from_addr, password, to_addrs, subject, content):
     email_client = SMTP(SMTP_host)
     email_client.login(from_addr, password)
     # create msg
@@ -163,22 +164,42 @@ class Queryer():
         return self.formated_infos()
 
 
+def retry_on_network_problem(num = 20, sleep = 60):
+    def decorate(f):
+        def wrapper(*args, **kwargs):
+            ct = num
+            while ct:
+                logger.debug("Trying query {} {} times remaining..".format(args, ct))
+                try:
+                    return f(*args, **kwargs)
+                except requests.ConnectionError as e:
+                    ct -= 1
+                    logger.warning("Encount the connection error on {}. Sleeping {} seconds...".format(args, sleep))
+                    time.sleep(sleep)
+                    logger.warning("Retry query {}, {} times remaining.".format(args, num))
+            logger.warning("the network connection is poor.")
+            raise e
+        return wrapper
+    return decorate
+
+
 class GenchQueryer(Queryer):
     def __init__(self):
         super().__init__("gench", "http://i.gench.edu.cn/2935/list.htm", 2)
         self.page_num = 1
 
+    @retry_on_network_problem()
     def get_one_page_infos(self, url):
         logger.debug('gench is querying "{}"...'.format(url))
         resp = requests.get(url)
         content = resp.content.decode()
         root = html.fromstring(content)  # type: html.HtmlElement
         ul = root.find(".//ul[@class='wp_article_list']")  # type: html.HtmlElement
-        for li in ul.getchildren():     # type: html.HtmlElement
+        for li in ul.getchildren():  # type: html.HtmlElement
             text = li.find(".//a").text
             if text is None:
                 text = li.find(".//a").attrib['title']
-            href = li.find(".//a").attrib['href']       # type: str
+            href = li.find(".//a").attrib['href']  # type: str
             if not href.startswith("http"):
                 href = "http://i.gench.edu.cn" + href
             time = self.format_datetime(li.find(".//span[@class='Article_PublishDate']").text, "%Y-%m-%d")
@@ -221,8 +242,9 @@ def run(conf = "config.yaml"):
     body = '<br><br>'.join(infos)
     logger.info('Sending mail..')
     try:
-        mail_config = config['mail']    # type: dict
-        send_email(mail_config['smpt'], mail_config['from-address'] , mail_config['password'], mail_config['receiver'], mail_config['subject'], body)
+        mail_config = config['mail']  # type: dict
+        send_email(mail_config['smpt'], mail_config['from-address'], mail_config['password'], mail_config['receiver'],
+                   mail_config['subject'], body)
     except Exception as e:
         logger.error("Send mail error!!")
         raise e
