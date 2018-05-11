@@ -1,6 +1,6 @@
 ## pyinfo
 
-There are many websites sometime giving some key informations but can not find a rss source on them. So this thing came up. This is a little script that can get non-push messages from any website you want and send it to your as an email. For exmaple, you can launch it with `launchctl` on mac and make it send the email for you every day so that you will not miss any important message.
+There are many websites sometime giving some key informations but can not find a rss source on them. So this thing came up. This is a little script that can get non-push messages from any website you want and send it to you as an email. For exmaple, you can launch it with `launchctl` on mac and make it send the email for you every day so that you will not miss any important message.
 
 ## Usage
 
