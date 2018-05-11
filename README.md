@@ -42,7 +42,7 @@ There are many websites sometime giving some key informations but can not find a
     
 4. Run the `runner.py`.
 
-__Attention: if you want to use it with `launchctl`, you'd better use absolute path for all file location configurations. __
+**Attention: if you want to use it with `launchctl`, you'd better use absolute path for all file location configurations.**
 
 
 
