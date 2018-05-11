@@ -19,7 +19,7 @@ from smtplib import SMTP
 import requests
 import yaml
 from lxml import html
-from scripts import log
+from pyinfo import log
 
 content = ''
 logger = log.get_logger(to_file = False)  # type: Logger
@@ -183,8 +183,6 @@ def retry_on_network_problem(num = 20, sleep = 60):
         return wrapper
 
     return decorate
-
-
 
 
 def start(runner_list):
