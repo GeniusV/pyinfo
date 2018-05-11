@@ -1,0 +1,13 @@
+log:
+  path: # the path of the log, you'd better config this if you want to use it in launchctl
+  level: debug
+
+mail:
+  smpt: # smpt server address
+  from-address:
+  password:
+  subject: # the subject of every email
+  receiver:
+
+data-file: # the data file that remember the location of the messages sent you last time.
+init-mode: false # make it true if you want to init it. Init-mode will on if you launch it for the fist time.
