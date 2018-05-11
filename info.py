@@ -6,11 +6,11 @@ import base64
 import json
 import logging
 import os
+import time
 from concurrent.futures import Future
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 from datetime import datetime
-import time
 from email.header import Header
 from email.mime.text import MIMEText
 from logging import Logger
@@ -22,7 +22,7 @@ from lxml import html
 from scripts import log
 
 content = ''
-logger = None  # type: Logger
+logger = log.get_logger(to_file = False)  # type: Logger
 config = {}
 base_header = {
     "user-agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_3) AppleWebKit/604.5.6 (KHTML, like Gecko) Version/11.0.3 Safari/604.5.6'
@@ -179,45 +179,18 @@ def retry_on_network_problem(num = 20, sleep = 60):
                     logger.warning("Retry query {}, {} times remaining.".format(args, num))
             logger.warning("the network connection is poor.")
             raise e
+
         return wrapper
+
     return decorate
 
 
-class GenchQueryer(Queryer):
-    def __init__(self):
-        super().__init__("gench", "http://i.gench.edu.cn/2935/list.htm", 2)
-        self.page_num = 1
-
-    @retry_on_network_problem()
-    def get_one_page_infos(self, url):
-        logger.debug('gench is querying "{}"...'.format(url))
-        resp = requests.get(url)
-        content = resp.content.decode()
-        root = html.fromstring(content)  # type: html.HtmlElement
-        ul = root.find(".//ul[@class='wp_article_list']")  # type: html.HtmlElement
-        for li in ul.getchildren():  # type: html.HtmlElement
-            text = li.find(".//a").text
-            if text is None:
-                text = li.find(".//a").attrib['title']
-            href = li.find(".//a").attrib['href']  # type: str
-            if not href.startswith("http"):
-                href = "http://i.gench.edu.cn" + href
-            time = self.format_datetime(li.find(".//span[@class='Article_PublishDate']").text, "%Y-%m-%d")
-            self.infos.append(Info(text, href, time))
-        return root
-
-    def next_page_url(self, page):
-        self.page_num += 1
-        return self.url.replace('list', 'list{}'.format(self.page_num))
 
 
-def run(conf = "config.yaml"):
-    global logger
-    __load_config(conf)
-    logger = log.get_logger(filepath = config['log']['path'])
-    __load_data(config['data-file'])
-    logger.setLevel(logging.DEBUG) if config['log']['level'] == "debug" else logger.setLevel(logging.INFO)
-    runner_list = [GenchQueryer()]
+def start(runner_list):
+    logger.debug("pyinfo in starting...")
+    if not config:
+        logger.critical("pyinfo has not been init yet, please call init() first.")
     if config['init-mode']:
         for queryer in runner_list:
             queryer.init_mode = True
@@ -252,5 +225,10 @@ def run(conf = "config.yaml"):
         logger.info('Mail sending complete.')
 
 
-if __name__ == "__main__":
-    run(conf = '/Users/GeniusV/Documents/pythonProject/pyinfo/config.yaml')
+def init(conf = "config.yaml"):
+    global logger
+    logger.debug("pyinfo is initializing...")
+    __load_config(conf)
+    logger = log.get_logger(filepath = config['log']['path'], name = "Main_Logger")
+    __load_data(config['data-file'])
+    logger.setLevel(logging.DEBUG) if config['log']['level'] == "debug" else logger.setLevel(logging.INFO)
