@@ -109,6 +109,13 @@ class Info():
 
 class Queryer():
     def __init__(self, domain_name: str, url: str, init_page_num: int, init_mode = False):
+        """
+        :param domain_name:
+        :param url:
+        :param init_page_num: the num of pages to query when in init mode. And if query page num (in normal mode) is
+         bigger than init_page_num, it will get into init mode and retry.
+        :param init_mode:
+        """
         self.name = domain_name
         self.url = url
         self.init_page_num = init_page_num
@@ -149,13 +156,23 @@ class Queryer():
         """
         url = self.url
         if self.init_mode:
+            logger.debug('"{}" is in init mode.'.format(self.name))
             for i in range(self.init_page_num):
                 html = self.get_one_page_infos(url)
                 url = self.next_page_url(html)
         else:
-            while data[self.name] not in [info.text for info in self.infos]:
+            ct = 0
+            while data[self.name] not in [info.text for info in self.infos] and ct < self.init_page_num:
                 html = self.get_one_page_infos(url)
                 url = self.next_page_url(html)
+                ct +=1
+            # If query num is bigger tha init page num, use set this queryer to init mode and retry
+            if ct >= self.init_page_num:
+                self.init_mode = True
+                logger.warning('Query "{}" num is bigger than init_page_num = {}.'.format(self.name, self.init_page_num))
+                logger.warning('Cannot find the last record.')
+                logger.warning('Enable init mode for "{}" and retry.'.format(self.name))
+                return self.get_new_infos()
             self.infos = self.infos[:[info.text for info in self.infos].index(data[self.name])]
         if len(self.infos) > 0:
             data[self.name] = self.infos[0].text
